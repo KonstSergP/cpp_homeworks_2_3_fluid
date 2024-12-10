@@ -183,7 +183,8 @@ bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
     do {
         std::array<vt, deltas.size()> tres;
         vt sum = 0;
-        for (size_t i = 0; i < deltas.size(); ++i) {
+        for (size_t i = 0; i < deltas.size(); ++i)
+        {
             auto [dx, dy] = deltas[i];
             int nx = x + dx, ny = y + dy;
             if (field[nx][ny] == '#' || last_use[nx][ny] == UT) {
