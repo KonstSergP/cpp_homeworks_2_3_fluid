@@ -105,6 +105,7 @@ tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, N, M>::propagate_fl
             auto flow = velocity_flow.get(x, y, dx, dy);
             if (vt(flow) == cap) continue;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             auto vp = std::min(vt(lim), cap - vt(flow));//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            //std::cout << "pf: " << lim << " " << vt(lim) << " " << cap << " " << flow << " " << vt(flow) << " " << cap - vt(flow) << "\n";
             if (last_use[nx][ny] == UT - 1) {
                 velocity_flow.add(x, y, dx, dy, vp);
                 last_use[x][y] = UT;
@@ -116,12 +117,12 @@ tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, N, M>::propagate_fl
             {
                 velocity_flow.add(x, y, dx, dy, t);
                 last_use[x][y] = UT;
-                return {t, prop && end != std::pair(x, y), end};
+                return {t, end != std::pair(x, y), end};
             }
         }
     }
     last_use[x][y] = UT;
-    return {ret, 0, {0, 0}};
+    return {ret, false, {0, 0}};
 }
 
 
@@ -286,8 +287,10 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
             for (size_t y = 0; y < M; ++y) {
                 if (field[x][y] != '#' && last_use[x][y] != UT) {
                     auto [t, local_prop, _] = propagate_flow(x, y, 1);
-                    if (t < vft(eps<32, 16>)) {t = vft(0);}//###########################################################
+                    //std::cout << t << "\n";
+                    if (t < vft(eps<32, 16>) && t > vft(0)) {t = vft(0);}//###########################################################
                     if (t > vft(0)) { // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        //std::cout << t << "\n";
                         prop = true;
                     }
                 }

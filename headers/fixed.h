@@ -14,7 +14,7 @@ struct Fixed
     constexpr Fixed(double f): v(f * (1 << K1)) {}
     constexpr Fixed(): v(0) {}
     template <size_t N2, size_t K2>
-    constexpr Fixed(Fixed<N2, K2> f): v(f.v << (K1-K2)) {}//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    constexpr Fixed(Fixed<N2, K2> f): v((K1>K2)?(f.v << (K1-K2)):(f.v >> (K2-K1))) {}//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     static constexpr Fixed from_raw(int64_t x)
     {
