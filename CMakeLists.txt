@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(main fluid.cpp
         headers/constants.h
         headers/fixed.h
-        src/fixed.cpp
         src/constants.cpp
         headers/Simulator.h
         headers/VectorField.h)
