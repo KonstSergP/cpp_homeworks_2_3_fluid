@@ -5,23 +5,25 @@
 #include <cstring>
 
 #include "constants.h"
-#include "Fixed.h"
 #include "VectorField.h"
+#include "FieldInfo.h"
+#include "CustomMatrix.h"
 
 using std::tuple, std::pair;
 
-// rho and g type?
 
-template <typename pt, typename vt, typename vft, int N, int M>
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
 struct Simulator
 {
-    VectorField<vt, N, M> velocity{};
-    VectorField<vft, N, M> velocity_flow{};
-    pt p[N][M]{}, old_p[N][M];
+    VectorField<vt, Nv, Mv> velocity{};
+    VectorField<vft, Nv, Mv> velocity_flow{};
+    CustomMatrix<pt, Nv, Mv> p{}, old_p{};
+    CustomMatrix<int64_t, Nv, Mv> last_use{}, dirs{};
+    CustomMatrix<uint8_t, Nv, Mv> field{};
+
+    size_t N = Nv, M = Mv;
     pt rho[256]{};
-    int64_t last_use[N][M]{};
-    int64_t dirs[N][M]{};
-    vt g;
+    vt g{};
     int64_t UT = 0;
     std::mt19937 rnd;
 
@@ -35,24 +37,39 @@ struct Simulator
     vt random01();
     void directionsInit();
     void nextTick();
-
+    void init(const FieldInfo& f);
 };
 
 
-
-
-template <typename pt, typename vt, typename vft, int N, int M>
-Simulator<pt, vt, vft, N, M>::Simulator(): rnd(1337)
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+void Simulator<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f)
 {
-    rho[' '] = 0.01;
-    rho['.'] = 1000l;
-    g = 0.1;
+    g = f.g; N = f.height; M = f.width;
+    for (int i = 0; i < 256; i++) {rho[i] = f.densities[i];}
+
+    velocity.init(N, M);
+    velocity_flow.init(N, M);
+    p.init(N, M); old_p.init(N, M);
+    last_use.init(N, M); dirs.init(N, M);
+    field.init(N, M);
+
+    for (size_t i = 0; i < N; i++) {
+        for (size_t j = 0; j < M; j++) {
+            field[i][j] = f.field[i][j];
+        }
+    }
+
     directionsInit();
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-void Simulator<pt, vt, vft, N, M>::directionsInit()
+
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+Simulator<pt, vt, vft, Nv, Mv>::Simulator(): rnd(1337) {}
+
+
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+void Simulator<pt, vt, vft, Nv, Mv>::directionsInit()
 {
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
@@ -66,8 +83,8 @@ void Simulator<pt, vt, vft, N, M>::directionsInit()
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-void Simulator<pt, vt, vft, N, M>::swap_between(int x, int y, int nx, int ny)
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+void Simulator<pt, vt, vft, Nv, Mv>::swap_between(int x, int y, int nx, int ny)
 {
     std::swap(field[x][y], field[nx][ny]);
     std::swap(p[x][y], p[nx][ny]);
@@ -75,8 +92,8 @@ void Simulator<pt, vt, vft, N, M>::swap_between(int x, int y, int nx, int ny)
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-vt Simulator<pt, vt, vft, N, M>::random01()
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+vt Simulator<pt, vt, vft, Nv, Mv>::random01()
 {
     if constexpr (std::is_floating_point_v<vt>) {
         return vt(rnd()) / vt(std::mt19937::max());
@@ -87,8 +104,8 @@ vt Simulator<pt, vt, vft, N, M>::random01()
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, N, M>::propagate_flow(int x, int y, vft lim)
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, Nv, Mv>::propagate_flow(int x, int y, vft lim)
 {
     last_use[x][y] = UT - 1;
     vft ret{};
@@ -99,10 +116,10 @@ tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, N, M>::propagate_fl
         {
             auto cap = velocity.get(x, y, dx, dy);
             auto flow = velocity_flow.get(x, y, dx, dy);
-            if (fabs(double(flow - vft(cap))) <= 0.0001) continue;//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            auto vp = std::min(lim, vft(cap) - flow);//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            //std::cout << "pf: " << lim << " " << vt(lim) << " " << cap << " " << flow << " " << vt(flow) << " " << cap - vt(flow) << "\n";
-            if (last_use[nx][ny] == UT - 1) {
+            if (fabs(double(flow - vft(cap))) <= 0.0001) continue;
+            auto vp = std::min(lim, vft(cap) - flow);
+            if (last_use[nx][ny] == UT - 1)
+            {
                 velocity_flow.add(x, y, dx, dy, vp);
                 last_use[x][y] = UT;
                 return {vp, 1, {nx, ny}};
@@ -122,8 +139,8 @@ tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, N, M>::propagate_fl
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-void Simulator<pt, vt, vft, N, M>::propagate_stop(int x, int y, bool force)
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+void Simulator<pt, vt, vft, Nv, Mv>::propagate_stop(int x, int y, bool force)
 {
     if (!force)
     {
@@ -131,7 +148,7 @@ void Simulator<pt, vt, vft, N, M>::propagate_stop(int x, int y, bool force)
         for (auto [dx, dy] : deltas)
         {
             int nx = x + dx, ny = y + dy;
-            if (field[nx][ny] != '#' && last_use[nx][ny] < UT - 1 && velocity.get(x, y, dx, dy) > int64_t(0)) {//!!!!!!!!!!!!
+            if (field[nx][ny] != '#' && last_use[nx][ny] < UT - 1 && velocity.get(x, y, dx, dy) > int64_t(0)) {
                 stop = false;
                 break;
             }
@@ -142,7 +159,7 @@ void Simulator<pt, vt, vft, N, M>::propagate_stop(int x, int y, bool force)
     for (auto [dx, dy] : deltas)
     {
         int nx = x + dx, ny = y + dy;
-        if (field[nx][ny] == '#' || last_use[nx][ny] == UT || velocity.get(x, y, dx, dy) > int64_t(0)) {//!!!!!!!!!!!!!!!!!!!
+        if (field[nx][ny] == '#' || last_use[nx][ny] == UT || velocity.get(x, y, dx, dy) > int64_t(0)) {
             continue;
         }
         propagate_stop(nx, ny);
@@ -150,8 +167,8 @@ void Simulator<pt, vt, vft, N, M>::propagate_stop(int x, int y, bool force)
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-vt Simulator<pt, vt, vft, N, M>::move_prob(int x, int y)
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+vt Simulator<pt, vt, vft, Nv, Mv>::move_prob(int x, int y)
 {
     vt sum{};
     for (auto [dx, dy] : deltas)
@@ -161,7 +178,7 @@ vt Simulator<pt, vt, vft, N, M>::move_prob(int x, int y)
             continue;
         }
         auto v = velocity.get(x, y, dx, dy);
-        if (v < int64_t(0)) {//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if (v < int64_t(0)) {
             continue;
         }
         sum += v;
@@ -170,8 +187,8 @@ vt Simulator<pt, vt, vft, N, M>::move_prob(int x, int y)
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+bool Simulator<pt, vt, vft, Nv, Mv>::propagate_move(int x, int y, bool is_first)
 {
     last_use[x][y] = UT - is_first;
     bool ret = false;
@@ -188,7 +205,7 @@ bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
                 continue;
             }
             auto v = velocity.get(x, y, dx, dy);
-            if (v < int64_t(0)) {//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            if (v < int64_t(0)) {
                 tres[i] = sum;
                 continue;
             }
@@ -196,7 +213,7 @@ bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
             tres[i] = sum;
         }
 
-        if (sum == int64_t(0)) {//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if (sum == int64_t(0)) {
             break;
         }
 
@@ -206,7 +223,7 @@ bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
         auto [dx, dy] = deltas[d];
         nx = x + dx;
         ny = y + dy;
-        assert(velocity.get(x, y, dx, dy) > int64_t(0) && field[nx][ny] != '#' && last_use[nx][ny] < UT);//!!!!!!!!!!!!!!!!!!
+        assert(velocity.get(x, y, dx, dy) > int64_t(0) && field[nx][ny] != '#' && last_use[nx][ny] < UT);
 
         ret = (last_use[nx][ny] == UT - 1 || propagate_move(nx, ny, false));
     } while (!ret);
@@ -216,7 +233,7 @@ bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
     {
         auto [dx, dy] = deltas[i];
         int nx = x + dx, ny = y + dy;
-        if (field[nx][ny] != '#' && last_use[nx][ny] < UT - 1 && velocity.get(x, y, dx, dy) < int64_t(0)) {//!!!!!!!!!!!!!!!!
+        if (field[nx][ny] != '#' && last_use[nx][ny] < UT - 1 && velocity.get(x, y, dx, dy) < int64_t(0)) {
             propagate_stop(nx, ny);
         }
     }
@@ -230,11 +247,12 @@ bool Simulator<pt, vt, vft, N, M>::propagate_move(int x, int y, bool is_first)
 }
 
 
-template <typename pt, typename vt, typename vft, int N, int M>
-void Simulator<pt, vt, vft, N, M>::nextTick()
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+void Simulator<pt, vt, vft, Nv, Mv>::nextTick()
 {
     //std::cout << 1 << "\n";
     // Apply external forces
+
     for (size_t x = 0; x < N; ++x)
     {
         for (size_t y = 0; y < M; ++y)
@@ -245,9 +263,10 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
             }
         }
     }
+
     //std::cout << 2 << "\n";
     // Apply forces from p
-    memcpy(old_p, p, sizeof(p));
+    old_p = p;
     for (size_t x = 0; x < N; ++x)
     {
         for (size_t y = 0; y < M; ++y)
@@ -260,22 +279,24 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
                 {
                     auto force = old_p[x][y] - old_p[nx][ny];
                     auto& contr = velocity.get(nx, ny, -dx, -dy);
-                    if (pt(contr) * rho[(int) field[nx][ny]] >= force)//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    if (pt(contr) * rho[(int) field[nx][ny]] >= force)
                     {
-                        contr -= vt(force / rho[(int) field[nx][ny]]);//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        contr -= vt(force / rho[(int) field[nx][ny]]);
                         continue;
                     }
-                    force -= pt(contr) * rho[(int) field[nx][ny]];//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    force -= pt(contr) * rho[(int) field[nx][ny]];
                     contr = int64_t(0);
                     velocity.add(x, y, dx, dy, vt(force / rho[(int) field[x][y]]));
-                    p[x][y] -= force / pt(dirs[x][y]); // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    p[x][y] -= force / pt(dirs[x][y]);
                 }
             }
         }
     }
+
     //std::cout << 3 << "\n";
     // Make flow from velocities
-    velocity_flow = {};
+    velocity_flow.clear();
+
     bool prop;
     do {
         UT += 2;
@@ -284,15 +305,14 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
             for (size_t y = 0; y < M; ++y) {
                 if (field[x][y] != '#' && last_use[x][y] != UT) {
                     auto [t, local_prop, _] = propagate_flow(x, y, int64_t(1));
-                    //std::cout << t << "\n";
-                    if (t > int64_t(0)) { // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        //std::cout << t << "\n";
+                    if (t > int64_t(0)) {
                         prop = true;
                     }
                 }
             }
         }
     } while (prop);
+
 
     //std::cout << 4 << "\n";
 
@@ -305,16 +325,17 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
             {
                 auto old_v = velocity.get(x, y, dx, dy);
                 auto new_v = velocity_flow.get(x, y, dx, dy);
-                if (old_v > int64_t(0)) {//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    assert(vt(new_v) <= old_v);//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                if (old_v > int64_t(0))
+                {
+                    assert(vt(new_v) <= old_v);
                     velocity.get(x, y, dx, dy) = vt(new_v);
-                    auto force = pt(old_v - vt(new_v)) * rho[(int) field[x][y]];//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    auto force = pt(old_v - vt(new_v)) * rho[(int) field[x][y]];
                     if (field[x][y] == '.')
-                        force *= pt(0.8);//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        force *= pt(0.8);
                     if (field[x + dx][y + dy] == '#') {
-                        p[x][y] += force / pt(dirs[x][y]);//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        p[x][y] += force / pt(dirs[x][y]);
                     } else {
-                        p[x + dx][y + dy] += force / pt(dirs[x + dx][y + dy]);//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        p[x + dx][y + dy] += force / pt(dirs[x + dx][y + dy]);
                     }
                 }
             }
@@ -327,8 +348,7 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] != '#' && last_use[x][y] != UT)
             {
-//                std::cout << "mv_pr: " << move_prob(x, y) << "\n";/////////////////////////////////////////////////////////////////////////////////////////////
-                if (random01() < move_prob(x, y)) {//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                if (random01() < move_prob(x, y)) {
                     prop = true;
                     propagate_move(x, y, true);
                 } else {
@@ -341,7 +361,10 @@ void Simulator<pt, vt, vft, N, M>::nextTick()
     if (prop)
     {
         for (size_t x = 0; x < N; ++x) {
-            std::cout << field[x] << "\n";
+            for (size_t y = 0; y < M; ++y) {
+                std::cout << field[x][y];
+            }
+            std::cout << "\n";
         }
     }
 }

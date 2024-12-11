@@ -1,9 +1,5 @@
 #pragma once
 
-#include <iostream>
-#include <limits>
-#include "constants.h"
-
 
 
 template <typename V, size_t K1>
@@ -32,62 +28,60 @@ struct FixedImpl
     explicit constexpr operator float() const {return (double)v / ((double) (1ll << K1));}
     explicit constexpr operator double() const {return (double)v / ((double) (1ll << K1));}
 
-    static constexpr FixedImpl inf = FixedImpl::from_raw(std::numeric_limits<int64_t>::max());
-    static constexpr FixedImpl eps = FixedImpl::from_raw(deltas.size());
     static const size_t k = K1;
 };
 
 
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto operator+(FixedImpl<V1, K1> a, FixedImpl<V2, K2> b){
+auto operator+(FixedImpl<V1, K1> a, const FixedImpl<V2, K2>& b){
     return FixedImpl<V1, K1>::from_raw((K1>K2) ? (a.v + (b.v << (K1-K2))) : (a.v + (b.v >> (K2-K1))));
 }
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto operator-(FixedImpl<V1, K1> a, FixedImpl<V2, K2> b){
+auto operator-(FixedImpl<V1, K1> a, const FixedImpl<V2, K2>& b){
     return FixedImpl<V1, K1>::from_raw((K1>K2) ? (a.v - (b.v << (K1-K2))) : (a.v - (b.v >> (K2-K1))));
 }
 
 #ifdef __SIZEOF_INT128__
 template<typename V1, size_t K1, typename V2, size_t K2>
-FixedImpl<V1, K1> operator*(FixedImpl<V1, K1> a, FixedImpl<V2, K2> b){
+FixedImpl<V1, K1> operator*(FixedImpl<V1, K1> a, const FixedImpl<V2, K2>& b){
     return FixedImpl<V1, K1>::from_raw(((__int128_t)a.v * b.v) >> K2);
 }
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto operator/(FixedImpl<V1, K1> a, FixedImpl<V2, K2> b){
+auto operator/(FixedImpl<V1, K1> a, const FixedImpl<V2, K2>& b){
     return FixedImpl<V1, K1>::from_raw((((__int128_t)a.v << K2) / b.v));
 }
 #else
 template<typename V1, size_t K1, typename V2, size_t K2>
-FixedImpl<V1, K1> operator*(FixedImpl<V1, K1> a, FixedImpl<V2, K2> b){
+FixedImpl<V1, K1> operator*(FixedImpl<V1, K1> a, const FixedImpl<V2, K2>& b){
     return FixedImpl<V1, K1>(double(a) * double(b));
 }
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto operator/(FixedImpl<V1, K1> a, FixedImpl<V2, K2> b){
+auto operator/(FixedImpl<V1, K1> a, const FixedImpl<V2, K2>& b){
     return FixedImpl<V1, K1>(double(a) / double(b));
 }
 #endif
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-FixedImpl<V1, K1>& operator+=(FixedImpl<V1, K1> &a, FixedImpl<V2, K2> b) {
+FixedImpl<V1, K1>& operator+=(FixedImpl<V1, K1> &a, const FixedImpl<V2, K2>& b) {
     return a = a + b;
 }
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto& operator-=(FixedImpl<V1, K1> &a, FixedImpl<V2, K2> b) {
+auto& operator-=(FixedImpl<V1, K1> &a, const FixedImpl<V2, K2>& b) {
     return a = a - b;
 }
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto& operator*=(FixedImpl<V1, K1> &a, FixedImpl<V2, K2> b) {
+auto& operator*=(FixedImpl<V1, K1> &a, const FixedImpl<V2, K2>& b) {
     return a = a * b;
 }
 
 template<typename V1, size_t K1, typename V2, size_t K2>
-auto& operator/=(FixedImpl<V1, K1> &a, FixedImpl<V2, K2> b) {
+auto& operator/=(FixedImpl<V1, K1> &a, const FixedImpl<V2, K2>& b) {
     return a = a / b;
 }
 
@@ -105,6 +99,6 @@ auto abs(FixedImpl<V1, K1> x) {
 }
 
 template<typename V1, size_t K1>
-std::ostream &operator<<(std::ostream &out, FixedImpl<V1, K1> x) {
+std::ostream &operator<<(std::ostream &out, const FixedImpl<V1, K1>& x) {
     return out << x.v / (double) (1ll << K1);
 }
