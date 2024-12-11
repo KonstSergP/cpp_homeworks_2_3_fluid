@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS)
 
-add_executable(main fluid.cpp
+add_executable(main main.cpp
         headers/constants.h
         headers/FixedImpl.h
-        src/constants.cpp
         headers/Simulator.h
         headers/VectorField.h
-        headers/Fixed.h)
+        headers/Fixed.h
+        headers/FieldInfo.h
+        src/FieldInfo.cpp
+        headers/CustomMatrix.h)
