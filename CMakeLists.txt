@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS)
 ADD_COMPILE_OPTIONS("-DTYPES=FLOAT,DOUBLE,FIXED(32, 16),FIXED(64, 32),FAST_FIXED(25, 11)")
+ADD_COMPILE_OPTIONS("-DSIZES=S(24,84)")
 
 add_executable(main main.cpp
         headers/constants.h

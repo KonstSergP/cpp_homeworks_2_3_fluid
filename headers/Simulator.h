@@ -16,7 +16,7 @@ struct Simulator
 {
     virtual void nextTick() = 0;
     virtual void init(const FieldInfo& f) = 0;
-    virtual ~Simulator();
+    virtual ~Simulator() = default;
 };
 
 
@@ -47,6 +47,7 @@ struct SimulatorImpl final: Simulator
     void directionsInit();
     void nextTick() override;
     void init(const FieldInfo& f) override;
+    ~SimulatorImpl() override = default;
 };
 
 
