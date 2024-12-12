@@ -12,8 +12,17 @@
 using std::tuple, std::pair;
 
 
-template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
 struct Simulator
+{
+    virtual void nextTick() = 0;
+    virtual void init(const FieldInfo& f) = 0;
+    virtual ~Simulator();
+};
+
+
+
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+struct SimulatorImpl final: Simulator
 {
     VectorField<vt, Nv, Mv> velocity{};
     VectorField<vft, Nv, Mv> velocity_flow{};
@@ -27,7 +36,7 @@ struct Simulator
     int64_t UT = 0;
     std::mt19937 rnd;
 
-    Simulator();
+    SimulatorImpl();
 
     tuple<vft, bool, pair<int, int>> propagate_flow(int x, int y, vft lim);
     void propagate_stop(int x, int y, bool force = false);
@@ -36,13 +45,13 @@ struct Simulator
     bool propagate_move(int x, int y, bool is_first);
     vt random01();
     void directionsInit();
-    void nextTick();
-    void init(const FieldInfo& f);
+    void nextTick() override;
+    void init(const FieldInfo& f) override;
 };
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-void Simulator<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f)
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f)
 {
     g = f.g; N = f.height; M = f.width;
     for (int i = 0; i < 256; i++) {rho[i] = f.densities[i];}
@@ -65,11 +74,11 @@ void Simulator<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f)
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-Simulator<pt, vt, vft, Nv, Mv>::Simulator(): rnd(1337) {}
+SimulatorImpl<pt, vt, vft, Nv, Mv>::SimulatorImpl(): rnd(1337) {}
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-void Simulator<pt, vt, vft, Nv, Mv>::directionsInit()
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::directionsInit()
 {
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
@@ -84,7 +93,7 @@ void Simulator<pt, vt, vft, Nv, Mv>::directionsInit()
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-void Simulator<pt, vt, vft, Nv, Mv>::swap_between(int x, int y, int nx, int ny)
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::swap_between(int x, int y, int nx, int ny)
 {
     std::swap(field[x][y], field[nx][ny]);
     std::swap(p[x][y], p[nx][ny]);
@@ -93,7 +102,7 @@ void Simulator<pt, vt, vft, Nv, Mv>::swap_between(int x, int y, int nx, int ny)
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-vt Simulator<pt, vt, vft, Nv, Mv>::random01()
+vt SimulatorImpl<pt, vt, vft, Nv, Mv>::random01()
 {
     if constexpr (std::is_floating_point_v<vt>) {
         return vt(rnd()) / vt(std::mt19937::max());
@@ -105,7 +114,7 @@ vt Simulator<pt, vt, vft, Nv, Mv>::random01()
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, Nv, Mv>::propagate_flow(int x, int y, vft lim)
+tuple<vft, bool, std::pair<int, int>> SimulatorImpl<pt, vt, vft, Nv, Mv>::propagate_flow(int x, int y, vft lim)
 {
     last_use[x][y] = UT - 1;
     vft ret{};
@@ -140,7 +149,7 @@ tuple<vft, bool, std::pair<int, int>> Simulator<pt, vt, vft, Nv, Mv>::propagate_
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-void Simulator<pt, vt, vft, Nv, Mv>::propagate_stop(int x, int y, bool force)
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::propagate_stop(int x, int y, bool force)
 {
     if (!force)
     {
@@ -168,7 +177,7 @@ void Simulator<pt, vt, vft, Nv, Mv>::propagate_stop(int x, int y, bool force)
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-vt Simulator<pt, vt, vft, Nv, Mv>::move_prob(int x, int y)
+vt SimulatorImpl<pt, vt, vft, Nv, Mv>::move_prob(int x, int y)
 {
     vt sum{};
     for (auto [dx, dy] : deltas)
@@ -188,7 +197,7 @@ vt Simulator<pt, vt, vft, Nv, Mv>::move_prob(int x, int y)
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-bool Simulator<pt, vt, vft, Nv, Mv>::propagate_move(int x, int y, bool is_first)
+bool SimulatorImpl<pt, vt, vft, Nv, Mv>::propagate_move(int x, int y, bool is_first)
 {
     last_use[x][y] = UT - is_first;
     bool ret = false;
@@ -248,7 +257,7 @@ bool Simulator<pt, vt, vft, Nv, Mv>::propagate_move(int x, int y, bool is_first)
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-void Simulator<pt, vt, vft, Nv, Mv>::nextTick()
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::nextTick()
 {
     //std::cout << 1 << "\n";
     // Apply external forces
