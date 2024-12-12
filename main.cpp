@@ -2,13 +2,10 @@
 
 #include "headers/Fixed.h"
 #include "headers/Simulator.h"
+#include "headers/parseSettings.h"
 
 using std::conditional_t, std::array;
 
-#define FIXED(n, k) (100*n+k)
-#define FAST_FIXED(n, k) (10000*n+k)
-#define FLOAT 1000000
-#define DOUBLE 2000000
 
 #ifndef SIZES
 #define SIZES
@@ -36,14 +33,12 @@ struct stNumberToType
     }
 };
 
-
 template <int num>
 using numType = typename decltype(stNumberToType<num>::get())::type;
 
 
 template <typename P, typename V, typename VF, size_t N, size_t M>
-constexpr std::unique_ptr<Simulator> generate()
-{
+constexpr std::unique_ptr<Simulator> generate() {
     return std::make_unique<SimulatorImpl<P, V, VF, N, M>>();
 }
 
@@ -54,37 +49,57 @@ template <int index>
 constexpr auto simulatorsGenerator()
 {
     auto res = simulatorsGenerator<index+1>();
-    get<0>(res)[index] = generate<numType<t[index/(t.size()*t.size()*s.size())]>, numType<t[index%(t.size()*t.size()*s.size())/(t.size()*s.size())]>, numType<t[index%(t.size()*s.size())/s.size()]>, s[index%s.size()].first, s[index%s.size()].second>;
-    get<1>(res)[index] = {t[index/(t.size()*t.size()*s.size())], t[index%(t.size()*t.size()*s.size())/(t.size()*s.size())], t[index%(t.size()*s.size())/s.size()], s[index%s.size()].first, s[index%s.size()].second};
+    res[index] = generate<numType<t[index/(t.size()*t.size()*s.size())]>, numType<t[index%(t.size()*t.size()*s.size())/(t.size()*s.size())]>, numType<t[index%(t.size()*s.size())/s.size()]>, s[index%s.size()].first, s[index%s.size()].second>;
     return res;
 }
 
 template <>
-constexpr auto simulatorsGenerator<t.size()*t.size()*t.size()*s.size()>()
-{
-    array<tuple<int, int, int, size_t, size_t>, t.size()*t.size()*t.size()*s.size()> types{};
-    array<genfunc, t.size()*t.size()*t.size()*s.size()> res{};
-    return tuple{res, types};
+constexpr auto simulatorsGenerator<t.size()*t.size()*t.size()*s.size()>() {
+    return array<genfunc, t.size()*t.size()*t.size()*s.size()>();
 }
 
 constexpr auto funcs = simulatorsGenerator<0>();
 
 
 
-int main()
+
+template <int index>
+constexpr auto typesGenerator()
 {
-    // for (auto b: t)
-    // {
-    //     std::cout << b << "\n";
-    // }
-    // Simulator<Fixed<32, 16>, double, FastFixed<48, 20>, 24, 84> sim1;
-    //
-    // FieldInfo info("../TestField.txt");
-    //
-    // sim1.init(info);
-    //
-    // for (size_t i = 0; i < 1000000; ++i)
-    // {
-    //     sim1.nextTick();
-    // }
+    auto res = typesGenerator<index+1>();
+    res[index] = {t[index/(t.size()*t.size()*s.size())], t[index%(t.size()*t.size()*s.size())/(t.size()*s.size())], t[index%(t.size()*s.size())/s.size()], s[index%s.size()].first, s[index%s.size()].second};
+    return res;
+}
+
+template <>
+constexpr auto typesGenerator<t.size()*t.size()*t.size()*s.size()>() {
+    return array<tuple<int, int, int, size_t, size_t>, t.size()*t.size()*t.size()*s.size()>();
+}
+
+constexpr auto types = typesGenerator<0>();
+
+// здесь имеет смысл описать почему функций 4 а не 2 (на заметку)
+
+
+int main(int argc, char* argv[])
+{
+    auto a = parseArgs(argc, argv);
+    std::cout << a.p_type << " " << a.v_type << " " << a.vf_type << "\n";
+    FieldInfo info("../TestField.txt");
+
+    tuple need = {a.p_type, a.v_type, a.vf_type, info.height, info.width};
+    auto index = std::find(types.begin(), types.end(), need) - types.begin();
+    std::cout << index << " " << types.size() << "\n";
+
+    // need = {a.p_type, a.v_type, a.vf_type, 0, 0};
+    // index = std::find(types.begin(), types.end(), need) - types.begin();
+    // std::cout << index << " " << types.size() << "\n";
+
+    auto sim = funcs[index]();
+    sim->init(info);
+
+    for (size_t i = 0; i < 1000000; ++i)
+    {
+        sim->nextTick();
+    }
 }

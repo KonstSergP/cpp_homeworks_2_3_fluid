@@ -5,8 +5,10 @@ project(cpp_homework_fluid)
 set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS)
-ADD_COMPILE_OPTIONS("-DTYPES=FLOAT,DOUBLE,FIXED(32, 16),FIXED(64, 32),FAST_FIXED(25, 11)")
+ADD_COMPILE_OPTIONS("-DTYPES=DOUBLE,FIXED(32, 16),FAST_FIXED(64, 32)")
+#ADD_COMPILE_OPTIONS("-DTYPES=FLOAT")
 ADD_COMPILE_OPTIONS("-DSIZES=S(24,84)")
+
 
 add_executable(main main.cpp
         headers/constants.h
@@ -17,4 +19,6 @@ add_executable(main main.cpp
         headers/FieldInfo.h
         src/FieldInfo.cpp
         headers/CustomMatrix.h
+        headers/parseSettings.h
+        src/parseSettings.cpp
 )
