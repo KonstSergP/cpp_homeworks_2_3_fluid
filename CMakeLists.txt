@@ -4,7 +4,7 @@ project(cpp_homework_fluid)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_FLAGS)
+set(CMAKE_CXX_FLAGS -O4)
 ADD_COMPILE_OPTIONS("-DTYPES=DOUBLE,FIXED(32, 16),FAST_FIXED(64, 32)")
 #ADD_COMPILE_OPTIONS("-DTYPES=FLOAT")
 ADD_COMPILE_OPTIONS("-DSIZES=S(24,84)")
@@ -21,4 +21,5 @@ add_executable(main main.cpp
         headers/CustomMatrix.h
         headers/parseSettings.h
         src/parseSettings.cpp
+        headers/TypeGeneration.h
 )

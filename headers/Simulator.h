@@ -3,19 +3,21 @@
 #include <random>
 #include <algorithm>
 #include <cstring>
+#include <fstream>
 
 #include "constants.h"
 #include "VectorField.h"
 #include "FieldInfo.h"
 #include "CustomMatrix.h"
+#include "parseSettings.h"
 
-using std::tuple, std::pair;
+using std::tuple, std::pair, std::ofstream;
 
 
 struct Simulator
 {
     virtual void nextTick() = 0;
-    virtual void init(const FieldInfo& f) = 0;
+    virtual void init(const FieldInfo& f, const SimSetts& setts) = 0;
     virtual ~Simulator() = default;
 };
 
@@ -35,6 +37,7 @@ struct SimulatorImpl final: Simulator
     vt g{};
     int64_t UT = 0;
     std::mt19937 rnd;
+    int64_t n_ticks{}, cur_tick{}; std::string out_name;
 
     SimulatorImpl();
 
@@ -46,13 +49,14 @@ struct SimulatorImpl final: Simulator
     vt random01();
     void directionsInit();
     void nextTick() override;
-    void init(const FieldInfo& f) override;
+    void init(const FieldInfo& f, const SimSetts& setts) override;
+    void serialize();
     ~SimulatorImpl() override = default;
 };
 
 
 template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
-void SimulatorImpl<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f)
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f, const SimSetts& setts)
 {
     g = f.g; N = f.height; M = f.width;
     for (int i = 0; i < 256; i++) {rho[i] = f.densities[i];}
@@ -68,6 +72,9 @@ void SimulatorImpl<pt, vt, vft, Nv, Mv>::init(const FieldInfo& f)
             field[i][j] = f.field[i][j];
         }
     }
+
+    n_ticks = setts.n_ticks;
+    out_name = setts.output_filename;
 
     directionsInit();
 }
@@ -377,4 +384,35 @@ void SimulatorImpl<pt, vt, vft, Nv, Mv>::nextTick()
             std::cout << "\n";
         }
     }
+
+    if (!out_name.empty() && (++cur_tick == n_ticks)) {
+        serialize();
+        cur_tick = 0;
+    }
+
+}
+
+
+template <typename pt, typename vt, typename vft, size_t Nv, size_t Mv>
+void SimulatorImpl<pt, vt, vft, Nv, Mv>::serialize()
+{
+    ofstream out(out_name);
+
+    auto cnt = std::count_if(rho, rho+256, [](auto i){return i!=0l;});
+
+    out << N << " " << M << " " << g << " " << cnt << "\n";
+    for (int i = 0; i < 256; i++) {
+        if (rho[i] == 0l) continue;
+        out << ((uint8_t)i) << " " << rho[i] << "\n";
+    }
+
+    for (int x = 0; x < N; x++)
+    {
+        for (int y = 0; y < M; y++)
+        {
+            out << field[x][y];
+        }
+        out << "\n";
+    }
+    out.close();
 }

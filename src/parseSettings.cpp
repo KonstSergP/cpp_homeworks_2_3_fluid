@@ -7,6 +7,8 @@
 #define FIXED_T  "FIXED\\(([1-6][0-9]|[1-9]),\\s*([1-6][0-9]|[1-9])\\)"
 #define FAST_FIXED_T "FAST_" FIXED_T
 #define STRING_TYPES "(" FAST_FIXED_T "|" FIXED_T "|" FLOAT_T "|" DOUBLE_T ")"
+#define STRING_FILE_PATH "(((?:(([^\\/\\s]*)|(\".*\"))\\/)*)((\".*\")|([^\\s]*)))"
+#define NUMBER "([0-9]+)"
 
 using std::string, std::regex, std::smatch, std::regex_search, std::cout, std::stoi;
 
@@ -42,28 +44,35 @@ int getTypeFromName(std::string& name)
         if (!parseAndExtract(FIXED_T, numbers, name, groups, 2)) {
             return 0;
         }
-        return stoi(numbers[0])*100 + stoi(numbers[1]); // FIXED
+        return FIXED(stoi(numbers[0]), stoi(numbers[1]));
     }
-    return stoi(numbers[0])*10000 + stoi(numbers[1]);   // FAST_FIXED
+    return FAST_FIXED(stoi(numbers[0]), stoi(numbers[1]));
 }
 
 
-SimulatorSettings parseArgs(const int argc, char* argv[])
+SimSetts parseArgs(const int argc, char* argv[])
 {
     std::string all;
     for (int i = 1; i < argc; i++) {
-        all += argv[i];
+        all += argv[i]; all += " ";
     }
 
-    SimulatorSettings settings{};
-    std::string p_type_s, v_type_s, vf_type_s; int group = 1;
+    SimSetts settings{};
+    std::string p_type_s, v_type_s, vf_type_s, in_filename, out_filename, ticks;
+    int group = 1;
 
-    parseAndExtract("--p-type="  STRING_TYPES, &p_type_s,  all, &group, 1);
-    parseAndExtract("--v-type="  STRING_TYPES, &v_type_s,  all, &group, 1);
-    parseAndExtract("--vf-type=" STRING_TYPES, &vf_type_s, all, &group, 1);
+    parseAndExtract("--p-type="   STRING_TYPES,     &p_type_s,    all, &group, 1);
+    parseAndExtract("--v-type="   STRING_TYPES,     &v_type_s,    all, &group, 1);
+    parseAndExtract("--vf-type="  STRING_TYPES,     &vf_type_s,   all, &group, 1);
+    parseAndExtract("--in-file="  STRING_FILE_PATH, &in_filename, all, &group, 1);
+    parseAndExtract("--out-file=" STRING_FILE_PATH, &out_filename,all, &group, 1);
+    parseAndExtract("--n-ticks="  NUMBER, &ticks,all, &group, 1);
     settings.p_type  = getTypeFromName(p_type_s);
     settings.v_type  = getTypeFromName(v_type_s);
     settings.vf_type = getTypeFromName(vf_type_s);
+    settings.input_filename =  in_filename;
+    settings.output_filename = out_filename;
+    settings.n_ticks = stoi(ticks);
 
     return settings;
 }
