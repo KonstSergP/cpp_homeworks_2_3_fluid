@@ -6,7 +6,7 @@
 #define FLOAT_T  "FLOAT"
 #define FIXED_T  "FIXED\\(([1-6][0-9]|[1-9]),\\s*([1-6][0-9]|[1-9])\\)"
 #define FAST_FIXED_T "FAST_" FIXED_T
-#define STRING_TYPES "(" FAST_FIXED_T "|" FIXED_T "|" FLOAT_T "|" DOUBLE_T ")"
+#define STRING_TYPES "\"?(" FAST_FIXED_T "|" FIXED_T "|" FLOAT_T "|" DOUBLE_T ")\"?"
 #define STRING_FILE_PATH "(((?:(([^\\/\\s]*)|(\".*\"))\\/)*)((\".*\")|([^\\s]*)))"
 #define NUMBER "([0-9]+)"
 
@@ -72,7 +72,7 @@ SimSetts parseArgs(const int argc, char* argv[])
     settings.vf_type = getTypeFromName(vf_type_s);
     settings.input_filename =  in_filename;
     settings.output_filename = out_filename;
-    settings.n_ticks = stoi(ticks);
+    if (!ticks.empty()) settings.n_ticks = stoi(ticks);
 
     return settings;
 }

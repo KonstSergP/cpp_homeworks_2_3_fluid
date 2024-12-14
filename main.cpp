@@ -7,9 +7,8 @@
 
 
 constexpr auto simulators = generateSimulators();
-constexpr auto types      = generateTypes();
+constexpr auto types = generateTypes();
 
-// здесь имеет смысл описать почему функций 4 а не 2 (на заметку)
 
 
 int main(int argc, char* argv[])
