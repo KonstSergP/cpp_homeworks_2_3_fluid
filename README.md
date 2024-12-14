@@ -56,6 +56,6 @@ DOUBLE DOUBLE FLOAT\
 DOUBLE FLOAT FLOAT\
 FLOAT DOUBLE FLOAT\
 FLOAT FLOAT FLOAT\
-FIXED(31,16) DOUBLE FLOAT\
+FIXED(32,16) DOUBLE FLOAT\
 FAST_FIXED(48,16) DOUBLE FLOAT\
 Их починка требует разбирательства в том, где возникают ошибки округления, этим я займусь в третьей домашке
