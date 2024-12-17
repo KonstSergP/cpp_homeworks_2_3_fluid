@@ -8,6 +8,7 @@
 #include "Fixed.h"
 #include "FieldInfo.h"
 #include "SimSetts.h"
+#include "ThreadPool.h"
 
 struct Simulator
 {
@@ -17,12 +18,14 @@ struct Simulator
     CustomMatrix<int64_t> last_use{}, dirs{};
     CustomMatrix<uint8_t> field{};
 
-    size_t N, M;
+    size_t N{0}, M{0};
     Fixed rho[256]{};
     Fixed g{};
     int64_t UT = 0;
     std::mt19937 rnd;
     int64_t n_ticks{}, cur_tick{}; std::string out_name;
+
+//    threadPool pool{};
 
     Simulator();
 
@@ -36,4 +39,11 @@ struct Simulator
     void nextTick();
     void init(const FieldInfo& f, const SimSetts& setts);
     void serialize();
+    void print();
+
+    void applyExtForces();
+    void applyInnerForces();
+    void makeFlow();
+    void recalcP();
+    bool tryMove();
 };

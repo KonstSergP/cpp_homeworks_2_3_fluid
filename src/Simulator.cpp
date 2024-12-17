@@ -35,6 +35,7 @@ Simulator::Simulator(): rnd(1337) {}
 
 void Simulator::directionsInit()
 {
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] == '#')
@@ -44,6 +45,36 @@ void Simulator::directionsInit()
             }
         }
     }
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto d1 = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+    std::cout << "Time difference = " << d1 << "[µs]" << std::endl;
+
+    // begin = std::chrono::steady_clock::now();
+    // for (int x = 0; x < N; x++)
+    // {
+    //     pool.addTask([x, this]()
+    //     {   for (size_t y = 0; y < M; ++y) {
+    //         if (field[x][y] == '#')
+    //             continue;
+    //         for (auto [dx, dy] : deltas) {
+    //             dirs[x][y] += (field[x + dx][y + dy] != '#');
+    //         }
+    //     }});
+    // }
+    // pool.waitForAll();
+    // end = std::chrono::steady_clock::now();
+    // auto d2 = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+    // std::cout << "Time difference = " << d2 << "[µs]" << std::endl;////////////////////////////////////////////////////////////////////////
+
+    // for (size_t x = 0; x < N; ++x) {
+    //     for (size_t y = 0; y < M; ++y) {
+    //         if (field[x][y] == '#')
+    //             continue;
+    //         for (auto [dx, dy] : deltas) {
+    //             dirs[x][y] += (field[x + dx][y + dy] != '#');
+    //         }
+    //     }
+    // }
 }
 
 
@@ -198,12 +229,8 @@ bool Simulator::propagate_move(int x, int y, bool is_first)
     return ret;
 }
 
-
-void Simulator::nextTick()
+void Simulator::applyExtForces()
 {
-    //std::cout << 1 << "\n";
-    // Apply external forces
-
     for (size_t x = 0; x < N; ++x)
     {
         for (size_t y = 0; y < M; ++y)
@@ -214,9 +241,11 @@ void Simulator::nextTick()
             }
         }
     }
+}
 
-    //std::cout << 2 << "\n";
-    // Apply forces from p
+
+void Simulator::applyInnerForces()
+{
     old_p = p;
     for (size_t x = 0; x < N; ++x)
     {
@@ -230,22 +259,24 @@ void Simulator::nextTick()
                 {
                     auto force = old_p[x][y] - old_p[nx][ny];
                     auto& contr = velocity.get(nx, ny, -dx, -dy);
-                    if (contr * rho[(int) field[nx][ny]] >= force)
+                    if (contr * rho[field[nx][ny]] >= force)
                     {
-                        contr -= force / rho[(int) field[nx][ny]];
+                        contr -= force / rho[field[nx][ny]];
                         continue;
                     }
-                    force -= contr * rho[(int) field[nx][ny]];
+                    force -= contr * rho[field[nx][ny]];
                     contr = 0l;
-                    velocity.add(x, y, dx, dy, force / rho[(int) field[x][y]]);
+                    velocity.add(x, y, dx, dy, force / rho[field[x][y]]);
                     p[x][y] -= force / dirs[x][y];
                 }
             }
         }
     }
+}
 
-    //std::cout << 3 << "\n";
-    // Make flow from velocities
+
+void Simulator::makeFlow()
+{
     velocity_flow.clear();
 
     bool prop;
@@ -263,11 +294,11 @@ void Simulator::nextTick()
             }
         }
     } while (prop);
+}
 
 
-    //std::cout << 4 << "\n";
-
-    // Recalculate p with kinetic energy
+void Simulator::recalcP()
+{
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] == '#')
@@ -280,7 +311,7 @@ void Simulator::nextTick()
                 {
                     assert(new_v <= old_v);
                     velocity.get(x, y, dx, dy) = new_v;
-                    auto force = (old_v - new_v) * rho[(int) field[x][y]];
+                    auto force = (old_v - new_v) * rho[field[x][y]];
                     if (field[x][y] == '.')
                         force *= 0.8;
                     if (field[x + dx][y + dy] == '#') {
@@ -292,14 +323,20 @@ void Simulator::nextTick()
             }
         }
     }
-    //std::cout << 5 << "\n";
+}
+
+
+bool Simulator::tryMove()
+{
     UT += 2;
-    prop = false;
+    bool prop = false;
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] != '#' && last_use[x][y] != UT)
             {
+                //  ###########################################################################################################################
                 if (random01() < move_prob(x, y)) {
+                    // ##############################################################################################################################
                     prop = true;
                     propagate_move(x, y, true);
                 } else {
@@ -308,16 +345,33 @@ void Simulator::nextTick()
             }
         }
     }
+    return prop;
+}
 
-    if (prop)
-    {
-        for (size_t x = 0; x < N; ++x) {
-            for (size_t y = 0; y < M; ++y) {
-                std::cout << field[x][y];
-            }
-            std::cout << "\n";
+
+void Simulator::print()
+{
+    for (size_t x = 0; x < N; ++x) {
+        for (size_t y = 0; y < M; ++y) {
+            std::cout << field[x][y];
         }
+        std::cout << "\n";
     }
+}
+
+
+
+void Simulator::nextTick()
+{
+    applyExtForces();
+
+    applyInnerForces();
+
+    makeFlow();
+
+    recalcP();
+
+    if (tryMove()) print();
 
     if (!out_name.empty() && (++cur_tick == n_ticks)) {
         serialize();
