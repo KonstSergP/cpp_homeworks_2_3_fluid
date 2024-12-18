@@ -1,8 +1,6 @@
 #pragma once
 
-#include <exception>
-#include <iostream>
-#include <vector>
+#include <cassert>
 #include <cstring>
 
 template <typename T>

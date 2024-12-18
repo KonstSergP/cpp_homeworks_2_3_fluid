@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cassert>
 #include "Fixed.h"
 #include "CustomMatrix.h"
 
@@ -19,11 +18,30 @@ struct VectorField
         return get(x, y, dx, dy) += dv;
     }
 
+
+    // высоконагруженная часть, надо описать логику работы
+    // эта функция работает на 1-2% медленней swich case
+    // Fixed &get(int x, int y, int dx, int dy) {
+    //     return v[x][y][((dy&1)<<1) | (((dx&1)&((dx&2)>>1))|((dy&1)&((dy&2)>>1)))];
+    // }
+    // "оптимизированная" функция ниже плод совместных трудов Петрова Константина, Чубенко Семена, Сокурова Идара
+    // и является логическим продолжением верхней
     Fixed &get(int x, int y, int dx, int dy) {
-        size_t i = std::ranges::find(deltas, std::pair(dx, dy)) - deltas.begin();
-        assert(i < deltas.size());
-        return v[x][y][i];
+        switch ((dx<<2) + dy)
+        {
+            case -1:
+                return v[x][y][0];
+            case 1:
+                return v[x][y][1];
+            case -4:
+                return v[x][y][2];
+            case 4:
+                return v[x][y][3];
+            default:
+                throw;
+        }
     }
+
 
     void clear() {
         v.clear();

@@ -16,7 +16,7 @@ struct task
     std::function<void()> f;
 };
 
-
+// предполагается что thread pool-ом управляет один поток
 struct threadPool
 {
 private:

@@ -6,7 +6,6 @@
 
 #include "VectorField.h"
 #include "Fixed.h"
-#include "FieldInfo.h"
 #include "SimSetts.h"
 #include "ThreadPool.h"
 
@@ -25,9 +24,9 @@ struct Simulator
     std::mt19937 rnd;
     int64_t n_ticks{}, cur_tick{}; std::string out_name;
 
-//    threadPool pool{};
+    threadPool pool;
 
-    Simulator();
+    Simulator(unsigned threadsCnt = 1);
 
     std::tuple<Fixed, bool, std::pair<int, int>> propagate_flow(int x, int y, Fixed lim);
     void propagate_stop(int x, int y, bool force = false);
@@ -37,7 +36,7 @@ struct Simulator
     Fixed random01();
     void directionsInit();
     void nextTick();
-    void init(const FieldInfo& f, const SimSetts& setts);
+    void init(const SimSetts& setts);
     void serialize();
     void print();
 

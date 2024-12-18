@@ -1,7 +1,7 @@
 
 height = 1000
 width = 1000
-mult = 10
+mult = 5
 field = []
 
 with open("TestField.txt", "r") as file:

@@ -5,10 +5,11 @@
 #include "Simulator.h"
 #include "FieldInfo.h"
 
-void Simulator::init(const FieldInfo& f, const SimSetts& setts)
+
+void Simulator::init(const SimSetts& setts)
 {
-    g = f.g; N = f.height; M = f.width;
-    for (int i = 0; i < 256; i++) {rho[i] = f.densities[i];}
+    g = setts.info.g; N = setts.info.height; M = setts.info.width;
+    for (int i = 0; i < 256; i++) {rho[i] = setts.info.densities[i];}
 
     velocity.init(N, M);
     velocity_flow.init(N, M);
@@ -18,7 +19,7 @@ void Simulator::init(const FieldInfo& f, const SimSetts& setts)
 
     for (size_t i = 0; i < N; i++) {
         for (size_t j = 0; j < M; j++) {
-            field[i][j] = f.field[i][j];
+            field[i][j] = setts.info.field[i][j];
         }
     }
 
@@ -30,12 +31,11 @@ void Simulator::init(const FieldInfo& f, const SimSetts& setts)
 
 
 
-Simulator::Simulator(): rnd(1337) {}
+Simulator::Simulator(unsigned threadsCnt): rnd(1337), pool(threadsCnt-1) {}
 
 
 void Simulator::directionsInit()
 {
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] == '#')
@@ -45,9 +45,7 @@ void Simulator::directionsInit()
             }
         }
     }
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    auto d1 = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-    std::cout << "Time difference = " << d1 << "[µs]" << std::endl;
+
 
     // begin = std::chrono::steady_clock::now();
     // for (int x = 0; x < N; x++)
@@ -93,7 +91,8 @@ Fixed Simulator::random01() {
 
 std::tuple<Fixed, bool, std::pair<int, int>> Simulator::propagate_flow(int x, int y, Fixed lim)
 {
-    last_use[x][y] = UT - 1;
+    last_use[x][y] = UT - 1; // изначально last_use[x][y] <= UT - 1
+
     Fixed ret{};
     for (auto [dx, dy] : deltas)
     {
@@ -102,14 +101,16 @@ std::tuple<Fixed, bool, std::pair<int, int>> Simulator::propagate_flow(int x, in
         {
             auto cap = velocity.get(x, y, dx, dy);
             auto flow = velocity_flow.get(x, y, dx, dy);
-            if (abs(flow - cap) <= 0.0001) continue;
+            if (flow - cap == 0l) continue;
             auto vp = std::min(lim, cap - flow);
+            if (vp < 0.001) continue; // если скорость слишком мала, результаты далее все равно учитываться не будут
             if (last_use[nx][ny] == UT - 1)
             {
                 velocity_flow.add(x, y, dx, dy, vp);
                 last_use[x][y] = UT;
-                return {vp, 1, {nx, ny}};
+                return {vp, true, {nx, ny}};
             }
+
             auto [t, prop, end] = propagate_flow(nx, ny, vp);
             ret += t;
             if (prop)
@@ -336,6 +337,7 @@ bool Simulator::tryMove()
             {
                 //  ###########################################################################################################################
                 if (random01() < move_prob(x, y)) {
+                //if (move_prob(x, y) > 0.5) {
                     // ##############################################################################################################################
                     prop = true;
                     propagate_move(x, y, true);
