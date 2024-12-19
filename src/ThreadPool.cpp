@@ -8,9 +8,9 @@ void task::operator()() {
 }
 
 
-threadPool::threadPool(unsigned treadCnt): end(false), running(0)
+threadPool::threadPool(unsigned threadCnt): end(false), running(0)
 {
-    for (unsigned i = 0; i < treadCnt; i++) {
+    for (unsigned i = 0; i < threadCnt; i++) {
         threads.push_back(std::thread(&threadPool::work, this));
     }
 }

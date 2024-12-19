@@ -22,11 +22,11 @@ struct Simulator
     Fixed g{};
     int64_t UT = 0;
     std::mt19937 rnd;
-    int64_t n_ticks{}, cur_tick{}; std::string out_name;
+    int64_t n_ticks{}, n_threads{1}, cur_tick{}; std::string out_name;
 
     threadPool pool;
 
-    Simulator(unsigned threadsCnt = 1);
+    Simulator(SimSetts setts);
 
     std::tuple<Fixed, bool, std::pair<int, int>> propagate_flow(int x, int y, Fixed lim);
     void propagate_stop(int x, int y, bool force = false);

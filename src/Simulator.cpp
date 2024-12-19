@@ -31,48 +31,40 @@ void Simulator::init(const SimSetts& setts)
 
 
 
-Simulator::Simulator(unsigned threadsCnt): rnd(1337), pool(threadsCnt-1) {}
+Simulator::Simulator(SimSetts setts): rnd(1337), pool(setts.n_threads), n_threads(setts.n_threads+1) {
+    init(setts);
+}
 
 
 void Simulator::directionsInit()
 {
-    for (size_t x = 0; x < N; ++x) {
-        for (size_t y = 0; y < M; ++y) {
-            if (field[x][y] == '#')
-                continue;
-            for (auto [dx, dy] : deltas) {
-                dirs[x][y] += (field[x + dx][y + dy] != '#');
+    if (n_threads == 1)
+    {
+        for (size_t x = 0; x < N; ++x) {
+            for (size_t y = 0; y < M; ++y) {
+                if (field[x][y] == '#')
+                    continue;
+                for (auto [dx, dy] : deltas) {
+                    dirs[x][y] += (field[x + dx][y + dy] != '#');
+                }
             }
         }
+    } else
+    {
+        for (int x = 0; x < N; x++)
+        {
+            pool.addTask([x, this]()
+            {   for (size_t y = 0; y < M; ++y) {
+                if (field[x][y] == '#')
+                    continue;
+                for (auto [dx, dy] : deltas) {
+                    dirs[x][y] += (field[x + dx][y + dy] != '#');
+                }
+            }});
+        }
+        pool.waitForAll();
     }
 
-
-    // begin = std::chrono::steady_clock::now();
-    // for (int x = 0; x < N; x++)
-    // {
-    //     pool.addTask([x, this]()
-    //     {   for (size_t y = 0; y < M; ++y) {
-    //         if (field[x][y] == '#')
-    //             continue;
-    //         for (auto [dx, dy] : deltas) {
-    //             dirs[x][y] += (field[x + dx][y + dy] != '#');
-    //         }
-    //     }});
-    // }
-    // pool.waitForAll();
-    // end = std::chrono::steady_clock::now();
-    // auto d2 = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-    // std::cout << "Time difference = " << d2 << "[µs]" << std::endl;////////////////////////////////////////////////////////////////////////
-
-    // for (size_t x = 0; x < N; ++x) {
-    //     for (size_t y = 0; y < M; ++y) {
-    //         if (field[x][y] == '#')
-    //             continue;
-    //         for (auto [dx, dy] : deltas) {
-    //             dirs[x][y] += (field[x + dx][y + dy] != '#');
-    //         }
-    //     }
-    // }
 }
 
 
@@ -103,7 +95,9 @@ std::tuple<Fixed, bool, std::pair<int, int>> Simulator::propagate_flow(int x, in
             auto flow = velocity_flow.get(x, y, dx, dy);
             if (flow - cap == 0l) continue;
             auto vp = std::min(lim, cap - flow);
+
             if (vp < 0.001) continue; // если скорость слишком мала, результаты далее все равно учитываться не будут
+
             if (last_use[nx][ny] == UT - 1)
             {
                 velocity_flow.add(x, y, dx, dy, vp);
@@ -232,15 +226,30 @@ bool Simulator::propagate_move(int x, int y, bool is_first)
 
 void Simulator::applyExtForces()
 {
-    for (size_t x = 0; x < N; ++x)
+    if (n_threads)
     {
-        for (size_t y = 0; y < M; ++y)
+        for (size_t x = 0; x < N; ++x)
         {
-            if (field[x][y] == '#') continue;
-            if (field[x + 1][y] != '#') {
-                velocity.add(x, y, 1, 0, g);
+            for (size_t y = 0; y < M; ++y)
+            {
+                if (field[x][y] == '#') continue;
+                if (field[x + 1][y] != '#') {
+                    velocity.add(x, y, 1, 0, g);
+                }
             }
         }
+    } else
+    {
+        for (int x = 0; x < N; x++) {
+            pool.addTask([x, this]()
+            {   for (size_t y = 0; y < M; ++y) {
+                if (field[x][y] == '#') continue;
+                if (field[x + 1][y] != '#') {
+                    velocity.add(x, y, 1, 0, g);
+                }
+            }});
+        }
+        pool.waitForAll();
     }
 }
 
@@ -335,10 +344,7 @@ bool Simulator::tryMove()
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] != '#' && last_use[x][y] != UT)
             {
-                //  ###########################################################################################################################
                 if (random01() < move_prob(x, y)) {
-                //if (move_prob(x, y) > 0.5) {
-                    // ##############################################################################################################################
                     prop = true;
                     propagate_move(x, y, true);
                 } else {
@@ -347,6 +353,7 @@ bool Simulator::tryMove()
             }
         }
     }
+
     return prop;
 }
 
